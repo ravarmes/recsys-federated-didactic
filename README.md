@@ -1,5 +1,5 @@
 <h1 align="center">
-    <img alt="RVM" src="https://github.com/ravarmes/recsys-federated-didactic/blob/master/assets/logo.jpg" />
+    <img alt="RVM" src="https://github.com/ravarmes/recsys-federated-didactic/blob/main/assets/logo.jpg" />
 </h1>
 
 <h3 align="center">
