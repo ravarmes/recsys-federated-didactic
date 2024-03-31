@@ -59,7 +59,7 @@ O objetivo deste projeto é demonstrar um exemplo didático de um sistema de rec
 8. **Visualização dos Modelos**: Visualizações gráficas ajudam a entender as estruturas do modelo ao longo do processo.
 
 
-## :rocket: Instalação e Execução
+## :computer: Instalação e execução <a name="-instalacao"/></a>
 
 Para instalar e executar este projeto, siga estes passos:
 
@@ -78,6 +78,10 @@ Para instalar e executar este projeto, siga estes passos:
    ```
    python recsys-federated-didatic.py
    ```
+
+## :clapper: Saída(s) <a name="-telas"/></a>
+
+<img src="https://github.com/ravarmes/recsys-federated-didactic/blob/main/assets/recsys-federated-didatic-1.png" width="700">
 
 ## :memo: Licença <a name="-licenca"/></a>
 
