@@ -19,11 +19,36 @@ class SimpleNN(nn.Module):
         return x
     
 def print_matriz_com_precisao(matriz):
+    """
+    Imprime uma matriz com valores formatados para duas casas decimais.
+
+    Args:
+        matriz (torch.Tensor or np.ndarray): Matriz a ser impressa.
+
+    Exemplo:
+        >>> print_matriz_com_precisao(torch.tensor([[1.11, 2.22], [3.33, 4.44]]))
+        [ 1.11 2.22 ]
+        [ 3.33 4.44 ]
+    """
     matriz_np = matriz.detach().numpy() if isinstance(matriz, torch.Tensor) else np.array(matriz)
     for linha in matriz_np:
         print("[", " ".join(f"{valor:.2f}" for valor in linha), "]")
 
 def visualize_model(model, title='Model'):
+    """
+    Visualiza a arquitetura de um modelo de rede neural, incluindo os pesos das conexões.
+    
+    Args:
+        model (torch.nn.Module): O modelo de rede neural a ser visualizado.
+        title (str): Título do gráfico da visualização.
+        
+    Descrição:
+        Esta função cria um gráfico dirigido para representar a rede neural. 
+        Os nós representam os neurônios, e as arestas representam as conexões entre eles,
+        com os pesos das conexões exibidos. A função ajusta o posicionamento dos neurônios
+        para uma visualização clara, considerando as camadas de entrada, oculta e saída.
+        Utiliza a biblioteca matplotlib para exibir o gráfico e networkx para criar a estrutura da rede.
+    """
     plt.figure(figsize=(8, 6))  # Define o tamanho da figura
 
     G = nx.DiGraph()
@@ -73,6 +98,23 @@ def visualize_model(model, title='Model'):
     plt.show()
 
 def treinar_modelo_global(modelo, avaliacoes, criterion, epochs=50, learning_rate=0.01):
+    """
+    Treina o modelo global usando uma matriz de avaliações.
+    
+    Args:
+        modelo (torch.nn.Module): O modelo de rede neural a ser treinado.
+        avaliacoes (torch.Tensor): Um tensor contendo as avaliações dos usuários sobre os itens.
+        criterion (torch.nn.modules.loss._Loss): A função de perda utilizada para o treinamento.
+        epochs (int, optional): Número de épocas para o treinamento. Padrão é 50.
+        learning_rate (float, optional): Taxa de aprendizado para o otimizador SGD. Padrão é 0.01.
+        
+    Descrição:
+        Esta função treina o modelo global utilizando a matriz de avaliações fornecida.
+        Utiliza o otimizador SGD (Descida do Gradiente Estocástica) com a taxa de aprendizado
+        especificada. A função de perda calculada a cada época é baseada na diferença entre
+        as saídas do modelo e as avaliações reais. Os parâmetros do modelo são atualizados
+        em cada passo do treinamento para minimizar a função de perda.
+    """
     optimizer = optim.SGD(modelo.parameters(), lr=learning_rate)
 
     for epoch in range(epochs):
@@ -83,6 +125,30 @@ def treinar_modelo_global(modelo, avaliacoes, criterion, epochs=50, learning_rat
         optimizer.step()
 
 def treinar_modelos_locais(modelo_global, avaliacoes_inicial, criterion):
+    """
+    Treina modelos locais para cada conjunto de avaliações de usuário e gera novas avaliações.
+
+    Args:
+        modelo_global (torch.nn.Module): O modelo global de rede neural.
+        avaliacoes_inicial (torch.Tensor): Tensor contendo as avaliações dos usuários.
+        criterion (torch.nn.modules.loss._Loss): A função de perda utilizada para o treinamento.
+
+    Retorna:
+        Tuple[torch.Tensor, List[torch.nn.Module]]: Um par contendo o tensor de avaliações finais
+        e a lista de modelos locais treinados.
+
+    Descrição:
+        Para cada usuário (linha da matriz de avaliações), este método realiza o seguinte processo:
+        1. Identifica itens não avaliados pelo usuário.
+        2. Seleciona aleatoriamente dois desses itens para avaliação.
+        3. Gera avaliações aleatórias (entre 1 e 5) para esses itens.
+        4. Treina um modelo local (uma cópia do modelo global) com as avaliações atualizadas do usuário.
+        5. Após o treinamento, gera novas recomendações para o usuário com base no modelo local treinado.
+        
+        Este processo simula o treinamento local em um cenário de aprendizado federado, onde cada cliente
+        atualiza um modelo com base em suas próprias avaliações e, em seguida, o modelo global é atualizado
+        com base nos modelos locais.
+    """
     avaliacoes_final = avaliacoes_inicial.clone()
     modelos_clientes = [copy.deepcopy(modelo_global) for _ in range(avaliacoes_inicial.size(0))]
 
@@ -123,6 +189,28 @@ def treinar_modelos_locais(modelo_global, avaliacoes_inicial, criterion):
     return avaliacoes_final, modelos_clientes
 
 def agregar_modelos_locais_ao_global_pesos(modelo_global, modelos_clientes):
+    """
+    Atualiza os parâmetros do modelo global com a média dos parâmetros dos modelos locais.
+
+    Args:
+        modelo_global (torch.nn.Module): O modelo global de rede neural.
+        modelos_clientes (List[torch.nn.Module]): Lista dos modelos locais treinados.
+
+    Descrição:
+        Esta função percorre cada parâmetro (por exemplo, pesos e vieses) do modelo global e
+        atualiza seus valores com a média dos valores dos parâmetros correspondentes dos
+        modelos locais. Essa abordagem assume que uma média simples dos parâmetros pode
+        levar a um modelo global mais genérico e robusto, incorporando o aprendizado obtido
+        de várias fontes de dados locais.
+
+        O processo de agregação é uma etapa fundamental no aprendizado federado, permitindo
+        que o modelo global beneficie-se do aprendizado distribuído sem a necessidade de
+        compartilhar diretamente os dados locais, preservando assim a privacidade dos dados.
+
+        É importante que esta função seja chamada após o treinamento dos modelos locais e
+        antes da próxima rodada de distribuição do modelo global atualizado para treinamento
+        local adicional ou para inferência.
+    """
     with torch.no_grad():
         for i, param_global in enumerate(modelo_global.parameters()):
             cliente_params = torch.stack([list(cliente.parameters())[i].data for cliente in modelos_clientes])
@@ -130,12 +218,26 @@ def agregar_modelos_locais_ao_global_pesos(modelo_global, modelos_clientes):
 
 def agregar_modelos_locais_ao_global_gradientes(modelo_global, modelos_clientes, learning_rate=0.01):
     """
-    Atualiza o modelo global com base na média dos gradientes dos modelos locais.
+    Atualiza os parâmetros do modelo global com a média dos gradientes dos modelos locais.
 
     Args:
-    - modelo_global (torch.nn.Module): Modelo global a ser atualizado.
-    - modelos_clientes (list): Lista de modelos dos clientes.
-    - learning_rate (float): Taxa de aprendizado a ser usada para aplicar os gradientes.
+        modelo_global (torch.nn.Module): O modelo global de rede neural.
+        modelos_clientes (List[torch.nn.Module]): Lista dos modelos locais treinados.
+
+    Descrição:
+        Esta função percorre cada parâmetro (por exemplo, pesos e vieses) do modelo global e
+        atualiza seus valores com a média dos gradientes dos parâmetros correspondentes dos
+        modelos locais. A ideia é que, em vez de atualizar o modelo global com a média direta
+        dos parâmetros dos modelos locais, utilizamos os gradientes (derivadas da função de
+        perda em relação aos parâmetros) para fazer uma atualização baseada em como cada
+        modelo local "aprendeu" a partir de seus dados.
+
+        Este método é uma abordagem alternativa ao processo padrão de agregação em
+        aprendizado federado, permitindo um ajuste mais fino do modelo global com base nas
+        tendências de aprendizado locais.
+
+        É importante ressaltar que, para que esta função funcione como esperado, os modelos
+        locais devem ter seus gradientes retidos (não zerados) após o treinamento.
     """
     with torch.no_grad():
         global_params = list(modelo_global.parameters())
@@ -154,6 +256,18 @@ def agregar_modelos_locais_ao_global_gradientes(modelo_global, modelos_clientes,
             param_global -= learning_rate * gradientes_medios[i]
 
 def mostrar_calculos_agregacao_modelos (modelo_global, modelos_clientes):
+    """
+    Demonstra o processo de agregação dos parâmetros dos modelos locais ao modelo global.
+
+    Esta função percorre cada parâmetro (por exemplo, pesos e vieses) do modelo global e agrega os parâmetros correspondentes de todos os modelos locais, calculando a média deles. Este processo de agregação é um passo chave no aprendizado federado, permitindo que o modelo global aprenda a partir de dados distribuídos sem acessá-los diretamente.
+
+    Args:
+        modelo_global (torch.nn.Module): O modelo de rede neural global cujos parâmetros serão atualizados.
+        modelos_clientes (List[torch.nn.Module]): Uma lista de modelos locais dos quais os parâmetros serão agregados.
+
+    Descrição:
+        A função extrai cada parâmetro dos modelos locais e calcula a média desses parâmetros para atualizar o modelo global. Isso é feito para cada conjunto de parâmetros correspondentes (pesos e vieses), refletindo a aprendizagem coletiva dos modelos locais no modelo global. O processo visa melhorar o desempenho do modelo global com base nas tendências de aprendizado local, mantendo a privacidade dos dados.
+    """
     print("\n=== Mostrando Cálculos da Agregação dos Modelos Locais ao Global ===\n")
     with torch.no_grad():
         for i, param_global in enumerate(modelo_global.parameters()):
@@ -189,7 +303,6 @@ def main():
     modelo_global = SimpleNN(5, 2, 5)
     criterion = nn.MSELoss() 
 
-    # Chama a função de treinamento
     treinar_modelo_global(modelo_global, avaliacoes_inicial, criterion)
 
     print("=== Modelo Global Inicial (Servidor) ===")
@@ -204,11 +317,10 @@ def main():
     print("\n=== CLIENTES (ETAPA DE TREINAMENTOS LOCAIS) ===")
     avaliacoes_final, modelos_clientes = treinar_modelos_locais(modelo_global, avaliacoes_inicial, criterion)
 
-    # Agrega as atualizações dos modelos dos clientes ao modelo global
     agregar_modelos_locais_ao_global_pesos(modelo_global, modelos_clientes)
     # agregar_modelos_locais_ao_global_gradientes(modelo_global, modelos_clientes)
 
-    mostrar_calculos_agregacao_modelos (modelo_global, modelos_clientes)
+    # mostrar_calculos_agregacao_modelos (modelo_global, modelos_clientes)
 
     print("\n=== Modelo Global Final (Servidor) ===")
     visualize_model(modelo_global, 'Modelo Global Final')
