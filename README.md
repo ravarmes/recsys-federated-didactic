@@ -6,7 +6,7 @@
   Educational Example of Federated Recommendation System
 </h3>
 
-<p align="center">Exemplo de medidas de justiça do usuário em Sistemas de Recomendação </p>
+<p align="center">Exemplo didático de um sistema de recomendação federado utilizando aprendizado de máquina </p>
 
 <p align="center">
   <img alt="GitHub language count" src="https://img.shields.io/github/languages/count/ravarmes/recsys-federated-didactic?color=%2304D361">
