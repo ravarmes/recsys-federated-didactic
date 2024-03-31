@@ -124,7 +124,7 @@ def treinar_modelo_global(modelo, avaliacoes, criterion, epochs=50, learning_rat
         loss.backward()
         optimizer.step()
 
-def treinar_modelos_locais(modelo_global, avaliacoes_inicial, criterion):
+def treinar_modelos_locais(modelo_global, avaliacoes_inicial, criterion, epochs=50, learning_rate=0.01):
     """
     Treina modelos locais para cada conjunto de avaliações de usuário e gera novas avaliações.
 
@@ -132,6 +132,8 @@ def treinar_modelos_locais(modelo_global, avaliacoes_inicial, criterion):
         modelo_global (torch.nn.Module): O modelo global de rede neural.
         avaliacoes_inicial (torch.Tensor): Tensor contendo as avaliações dos usuários.
         criterion (torch.nn.modules.loss._Loss): A função de perda utilizada para o treinamento.
+        epochs (int, optional): Número de épocas para o treinamento. Padrão é 50.
+        learning_rate (float, optional): Taxa de aprendizado para o otimizador SGD. Padrão é 0.01.
 
     Retorna:
         Tuple[torch.Tensor, List[torch.nn.Module]]: Um par contendo o tensor de avaliações finais
@@ -169,8 +171,8 @@ def treinar_modelos_locais(modelo_global, avaliacoes_inicial, criterion):
         print(f"Novas Avaliações do Cliente {i + 1}:")
         print_matriz_com_precisao(avaliacoes_cliente.unsqueeze(0))
 
-        optimizer_cliente = optim.SGD(modelo_cliente.parameters(), lr=0.01)
-        for _ in range(1000):
+        optimizer_cliente = optim.SGD(modelo_cliente.parameters(), lr=learning_rate)
+        for _ in range(epochs):
             optimizer_cliente.zero_grad()
             output_cliente = modelo_cliente(avaliacoes_cliente.unsqueeze(0))
             loss_cliente = criterion(output_cliente, avaliacoes_cliente.unsqueeze(0))
